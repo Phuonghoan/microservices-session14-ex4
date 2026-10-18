@@ -4,6 +4,10 @@ import org.example.identityservice.dto.TokenResponseDTO;
 import org.example.identityservice.entity.User;
 import org.example.identityservice.entity.RefreshToken;
 
+import org.example.identityservice.service.TokenBlacklistService;
+import org.springframework.http.HttpHeaders;
+import java.util.Map;
+
 import org.example.identityservice.repository.UserRepository;
 
 import org.example.identityservice.service.AuthService;
@@ -28,17 +32,20 @@ public class AuthController {
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
     private final RefreshTokenService refreshTokenService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     public AuthController(
             AuthService authService,
             UserRepository userRepository,
             JwtUtil jwtUtil,
-            RefreshTokenService refreshTokenService
+            RefreshTokenService refreshTokenService,
+            TokenBlacklistService tokenBlacklistService
     ) {
         this.authService = authService;
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
         this.refreshTokenService = refreshTokenService;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     // =====================================
@@ -154,6 +161,45 @@ public class AuthController {
                 .body(
                         new ErrorResponse("Bad credentials")
                 );
+    }
+
+    // =====================================
+// BÀI MỚI: LOGOUT
+// =====================================
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(
+            @RequestHeader(
+                    value = HttpHeaders.AUTHORIZATION,
+                    required = false
+            ) String authorization
+    ) {
+
+        if (authorization == null
+                || !authorization.startsWith("Bearer ")) {
+
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "Access Token không hợp lệ"
+                            )
+                    );
+        }
+
+        // Lấy JWT từ Authorization Header
+        String token = authorization.substring(7).trim();
+
+        // Đưa JTI vào Redis Blacklist
+        tokenBlacklistService.logout(token);
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "message",
+                        "Đăng xuất thành công"
+                )
+        );
     }
 
     // =====================================

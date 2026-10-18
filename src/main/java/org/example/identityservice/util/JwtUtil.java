@@ -1,5 +1,6 @@
 package org.example.identityservice.util;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JwtUtil {
@@ -25,10 +27,12 @@ public class JwtUtil {
             long accessTokenExpiration
     ) {
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
+
         this.signingKey = Keys.hmacShaKeyFor(keyBytes);
         this.accessTokenExpiration = accessTokenExpiration;
     }
 
+    // Tạo Access Token
     public String generateAccessToken(User user) {
 
         Date now = new Date();
@@ -38,14 +42,38 @@ public class JwtUtil {
         );
 
         return Jwts.builder()
+
+                // JWT ID duy nhất
+                .setId(UUID.randomUUID().toString())
+
+                // Username
                 .setSubject(user.getUsername())
+
+                // Role
                 .claim("role", user.getRole())
+
+                // Thời gian tạo
                 .setIssuedAt(now)
+
+                // Thời gian hết hạn
                 .setExpiration(expiration)
+
+                // Chữ ký JWT
                 .signWith(
                         signingKey,
                         SignatureAlgorithm.HS256
                 )
+
                 .compact();
+    }
+
+    // Giải mã và xác minh JWT
+    public Claims extractClaims(String token) {
+
+        return Jwts.parserBuilder()
+                .setSigningKey(signingKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 }
